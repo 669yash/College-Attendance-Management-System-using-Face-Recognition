@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Attendance - College Attendance System{% endblock %}
+
+{% block content %}
+<div class="mb-6 md:mb-8">
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <div>
+            <h1 class="text-2xl md:text-4xl font-bold text-gray-800 mb-2">Review & Edit Attendance</h1>
+            <p class="text-gray-600 text-sm md:text-base">Class: {{ class_info.class_name }} - {{ class_info.subject }}</p>
+            <p class="text-xs md:text-sm text-gray-500">Year: {{ class_info.year }} | Division: {{ class_info.division }}</p>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-6">
+    <div class="mb-4 p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
+        <p class="text-sm text-blue-700">
+            <strong>Instructions:</strong> Review the attendance marked by face recognition. You can manually change the status for any student by checking/unchecking the boxes. If a student was present but not detected, you can add them using the "Add Additional Students" section below. Click "Save Attendance" when done.
+        </p>
+    </div>
+    
+    <form method="POST" action="{{ url_for('professors.update_attendance', class_id=class_info._id) }}" class="space-y-4">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roll Number</th>
+                        <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                        <th class="px-3 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Present</th>
+                        <th class="px-3 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Absent</th>
+                        <th class="px-3 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for student in students %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ student.roll_number }}</td>
+                        <td class="px-3 md:px-6 py-4 text-sm text-gray-900">{{ student.name }}</td>
+                        <td class="px-3 md:px-6 py-4 whitespace-nowrap text-center">
+                            <input type="radio" 
+                                   name="status_{{ student.roll_number }}" 
+                                   value="present" 
+                                   id="present_{{ student.roll_number }}"
+                                   {% if student.status == 'present' %}checked{% endif %}
+                                   class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                        </td>
+                        <td class="px-3 md:px-6 py-4 whitespace-nowrap text-center">
+                            <input type="radio" 
+                                   name="status_{{ student.roll_number }}" 
+                                   value="absent" 
+                                   id="absent_{{ student.roll_number }}"
+                                   {% if student.status != 'present' %}checked{% endif %}
+                                   class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                        </td>
+                        <td class="px-3 md:px-6 py-4 whitespace-nowrap text-center hidden md:table-cell">
+                            <span class="text-xs text-gray-400">Enrolled</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Add Additional Students Section -->
+        <div class="mt-6 pt-6 border-t border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">Add Additional Students</h3>
+            <p class="text-sm text-gray-600 mb-4">If a student was present in class but not detected by face recognition, you can add them below:</p>
+            
+            <!-- Add by Roll Number -->
+            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                <label for="roll_number_input" class="block text-sm font-medium text-gray-700 mb-2">Add Student by Roll Number:</label>
+                <div class="flex gap-2">
+                    <input type="text" 
+                           id="roll_number_input" 
+                           placeholder="Enter roll number"
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                    <button type="button" 
+                            onclick="addStudentByRollNumber()"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 text-sm">
+                        Add
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">Enter a roll number to add a student who was present but not detected</p>
+            </div>
+            
+            <!-- Add from Dropdown -->
+            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                <label for="additional_students" class="block text-sm font-medium text-gray-700 mb-2">Or Select from List (Year: {{ class_info.year }}, Division: {{ class_info.division }}):</label>
+                <select id="additional_students" 
+                        multiple 
+                        size="5"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                    {% for student in all_students %}
+                        {% if student.roll_number not in enrolled_roll_numbers %}
+                            <option value="{{ student.roll_number }}">{{ student.roll_number }} - {{ student.name }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-500 mt-2">Hold Ctrl (Windows) or Cmd (Mac) to select multiple students</p>
+            </div>
+            
+            <button type="button" 
+                    onclick="addSelectedStudents()"
+                    class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 text-sm mb-4">
+                Add Selected Students as Present
+            </button>
+            
+            <div id="additional_students_list" class="space-y-2">
+                <!-- Dynamically added students will appear here -->
+            </div>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+            <button type="submit" 
+                    class="flex-1 bg-blue-900 hover:bg-blue-800 text-white font-semibold py-2 px-6 rounded-lg transition duration-200 shadow-md">
+                Save Attendance
+            </button>
+            <a href="{{ url_for('professors.view_attendance', class_id=class_info._id) }}" 
+               class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg transition duration-200 text-center">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+let addedStudents = new Set();
+const allStudentsData = {
+    {% for student in all_students %}
+    "{{ student.roll_number }}": "{{ student.name }}",
+    {% endfor %}
+};
+const enrolledRollNumbers = new Set([
+    {% for roll in enrolled_roll_numbers %}
+    "{{ roll }}",
+    {% endfor %}
+]);
+
+function addStudentByRollNumber() {
+    const rollNumberInput = document.getElementById('roll_number_input');
+    const rollNumber = rollNumberInput.value.trim();
+    
+    if (!rollNumber) {
+        alert('Please enter a roll number.');
+        return;
+    }
+    
+    // Check if already added
+    if (addedStudents.has(rollNumber)) {
+        alert('This student is already added.');
+        rollNumberInput.value = '';
+        return;
+    }
+    
+    // Check if already in enrolled list
+    if (enrolledRollNumbers.has(rollNumber)) {
+        alert('This student is already in the attendance list.');
+        rollNumberInput.value = '';
+        return;
+    }
+    
+    // Get student name (try to find in data, otherwise use roll number)
+    const studentName = allStudentsData[rollNumber] || 'Unknown Student';
+    
+    // Add to table
+    addStudentToTable(rollNumber, studentName);
+    
+    // Remove from dropdown if exists
+    const select = document.getElementById('additional_students');
+    const option = Array.from(select.options).find(opt => opt.value === rollNumber);
+    if (option) {
+        option.remove();
+    }
+    
+    rollNumberInput.value = '';
+}
+
+function addStudentToTable(rollNumber, studentName) {
+    if (addedStudents.has(rollNumber)) {
+        return; // Already added
+    }
+    
+    addedStudents.add(rollNumber);
+    
+    // Create a new row in the table
+    const table = document.querySelector('table tbody');
+    const newRow = document.createElement('tr');
+    newRow.className = 'hover:bg-gray-50 bg-green-50';
+    newRow.id = 'row_' + rollNumber;
+    
+    newRow.innerHTML = 
+        '<td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">' + rollNumber + '</td>' +
+        '<td class="px-3 md:px-6 py-4 text-sm text-gray-900">' + studentName + '</td>' +
+        '<td class="px-3 md:px-6 py-4 whitespace-nowrap text-center">' +
+            '<input type="radio" name="status_' + rollNumber + '" value="present" id="present_' + rollNumber + '" checked class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">' +
+        '</td>' +
+        '<td class="px-3 md:px-6 py-4 whitespace-nowrap text-center">' +
+            '<input type="radio" name="status_' + rollNumber + '" value="absent" id="absent_' + rollNumber + '" class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">' +
+        '</td>' +
+        '<td class="px-3 md:px-6 py-4 whitespace-nowrap text-center">' +
+            '<button type="button" onclick="removeStudent(\'' + rollNumber + '\')" class="text-red-600 hover:text-red-800 text-sm font-medium">Remove</button>' +
+        '</td>';
+    
+    table.appendChild(newRow);
+}
+
+function addSelectedStudents() {
+    const select = document.getElementById('additional_students');
+    const selectedOptions = Array.from(select.selectedOptions);
+    
+    if (selectedOptions.length === 0) {
+        alert('Please select at least one student to add.');
+        return;
+    }
+    
+    selectedOptions.forEach(option => {
+        const rollNumber = option.value;
+        const studentInfo = option.text;
+        
+        if (!addedStudents.has(rollNumber)) {
+            const parts = studentInfo.split(' - ');
+            const name = parts.length > 1 ? parts[1] : allStudentsData[rollNumber] || '';
+            
+            addStudentToTable(rollNumber, name);
+            
+            // Remove from dropdown
+            option.remove();
+        }
+    });
+}
+
+function removeStudent(rollNumber) {
+    const row = document.getElementById('row_' + rollNumber);
+    if (row) {
+        row.remove();
+        addedStudents.delete(rollNumber);
+        
+        // Add back to dropdown
+        const select = document.getElementById('additional_students');
+        const studentName = allStudentsData[rollNumber] || '';
+        if (studentName && !enrolledRollNumbers.has(rollNumber)) {
+            const option = document.createElement('option');
+            option.value = rollNumber;
+            option.text = rollNumber + ' - ' + studentName;
+            select.appendChild(option);
+        }
+    }
+}
+</script>
+{% endblock %}
+

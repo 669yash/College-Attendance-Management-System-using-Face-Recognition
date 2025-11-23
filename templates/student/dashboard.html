@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Student Dashboard - College Attendance System{% endblock %}
+
+{% block content %}
+<div class="mb-6 md:mb-8">
+    <h1 class="text-2xl md:text-4xl font-bold text-gray-800 mb-2">Student Dashboard</h1>
+    <p class="text-gray-600 text-sm md:text-base">Welcome, {{ student.name }} (Roll: {{ student.roll_number }})</p>
+</div>
+
+<!-- Overall Statistics Cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 border-l-4 border-blue-500">
+        <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Overall Attendance</h3>
+        <p class="text-2xl md:text-3xl font-bold text-blue-600">{{ "%.1f"|format(overall_percentage) }}%</p>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 border-l-4 border-green-500">
+        <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Present</h3>
+        <p class="text-2xl md:text-3xl font-bold text-green-600">{{ present_count }}</p>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 border-l-4 border-red-500">
+        <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Absent</h3>
+        <p class="text-2xl md:text-3xl font-bold text-red-600">{{ absent_count }}</p>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-6 border-l-4 border-gray-500">
+        <h3 class="text-xs md:text-sm font-medium text-gray-600 mb-2">Total Classes</h3>
+        <p class="text-2xl md:text-3xl font-bold text-gray-600">{{ total_classes }}</p>
+    </div>
+</div>
+
+<!-- Download Report Button -->
+<div class="mb-6 md:mb-8">
+    <a href="{{ url_for('students.download_report') }}" 
+       class="inline-flex items-center bg-blue-900 hover:bg-blue-800 text-white font-semibold py-2 px-4 md:px-6 rounded-lg transition duration-200 shadow-md text-sm md:text-base">
+        Download Attendance Report (CSV)
+    </a>
+</div>
+
+<!-- Subject-wise Statistics -->
+<div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-6 md:mb-8">
+    <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-4 md:mb-6">Subject-wise Attendance</h2>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Present</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Absent</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Total</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for subject, stats in subject_stats.items() %}
+                <tr>
+                    <td class="px-3 md:px-6 py-4 text-sm font-medium text-gray-900">{{ subject }}</td>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-green-600">{{ stats.present }}</td>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-red-600">{{ stats.absent }}</td>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden sm:table-cell">{{ stats.total }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <span class="px-2 py-1 rounded-full {% if stats.percentage >= 75 %}bg-green-100 text-green-800{% elif stats.percentage >= 50 %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ "%.1f"|format(stats.percentage) }}%
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Detailed Attendance Records -->
+<div class="bg-white rounded-lg shadow-md p-4 md:p-6">
+    <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-4 md:mb-6">Recent Attendance Records</h2>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Time</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class Name</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Subject</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for record in detailed_records %}
+                <tr>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ record.date }}</td>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden sm:table-cell">{{ record.time }}</td>
+                    <td class="px-3 md:px-6 py-4 text-sm text-gray-900">{{ record.class_name }}</td>
+                    <td class="px-3 md:px-6 py-4 text-sm text-gray-600 hidden md:table-cell">{{ record.subject }}</td>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm">
+                        <span class="px-2 py-1 rounded-full text-xs {% if record.status == 'present' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ record.status|title }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+

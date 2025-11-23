@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}College Attendance System{% endblock %}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for formal college theme */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation Bar -->
+    <nav class="bg-blue-900 text-white shadow-lg">
+        <div class="container mx-auto px-3 md:px-4 py-2 md:py-3">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
+                <div class="flex items-center">
+                    <h1 class="text-lg md:text-xl font-bold">College Attendance System</h1>
+                </div>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
+                    {% if current_user.is_authenticated %}
+                        <span class="text-xs sm:text-sm">Welcome, {{ current_user.email }}</span>
+                        <a href="{{ url_for('auth.logout') }}" class="bg-red-600 hover:bg-red-700 px-3 md:px-4 py-1 md:py-2 rounded text-sm transition duration-200">
+                            Logout
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('auth.login') }}" class="bg-blue-700 hover:bg-blue-800 px-3 md:px-4 py-1 md:py-2 rounded text-sm transition duration-200">
+                            Login
+                        </a>
+                        <a href="{{ url_for('auth.register') }}" class="bg-green-600 hover:bg-green-700 px-3 md:px-4 py-1 md:py-2 rounded text-sm transition duration-200">
+                            Register
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mx-auto px-4 mt-4">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} mb-4 p-4 rounded-lg shadow-md
+                        {% if category == 'error' %}bg-red-100 border-l-4 border-red-500 text-red-700
+                        {% elif category == 'success' %}bg-green-100 border-l-4 border-green-500 text-green-700
+                        {% else %}bg-blue-100 border-l-4 border-blue-500 text-blue-700{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-3 md:px-4 py-4 md:py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white mt-12 py-6">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm">&copy; 2024 College Attendance Marking & Management System. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>
+

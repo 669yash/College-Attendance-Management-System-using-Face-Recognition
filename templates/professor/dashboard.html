@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Professor Dashboard - College Attendance System{% endblock %}
+
+{% block content %}
+<div class="mb-6 md:mb-8">
+    <h1 class="text-2xl md:text-4xl font-bold text-gray-800 mb-2">Professor Dashboard</h1>
+    <p class="text-gray-600 text-sm md:text-base">Welcome, {{ professor.name }}</p>
+</div>
+
+<!-- Create Class Form -->
+<div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-6 md:mb-8">
+    <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-4 md:mb-6">Create New Class</h2>
+    <form method="POST" action="{{ url_for('professors.create_class') }}" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label for="class_name" class="block text-sm font-medium text-gray-700 mb-2">Class Name</label>
+                <input type="text" 
+                       id="class_name" 
+                       name="class_name" 
+                       required 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="e.g., Computer Science - Data Structures">
+            </div>
+            
+            <div>
+                <label for="subject" class="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                <input type="text" 
+                       id="subject" 
+                       name="subject" 
+                       required 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="e.g., Data Structures">
+            </div>
+            
+            <div>
+                <label for="year" class="block text-sm font-medium text-gray-700 mb-2">Year</label>
+                <input type="text" 
+                       id="year" 
+                       name="year" 
+                       required 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="e.g., FE, SE, TE, BE">
+            </div>
+            
+            <div>
+                <label for="division" class="block text-sm font-medium text-gray-700 mb-2">Division</label>
+                <input type="text" 
+                       id="division" 
+                       name="division" 
+                       required 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="e.g., A, B, C">
+            </div>
+            
+            <div class="md:col-span-2">
+                <label for="time_slot" class="block text-sm font-medium text-gray-700 mb-2">Time Slot</label>
+                <input type="text" 
+                       id="time_slot" 
+                       name="time_slot" 
+                       required 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="e.g., Monday 10:00 AM - 11:30 AM">
+            </div>
+        </div>
+        
+        <button type="submit" 
+                class="bg-blue-900 hover:bg-blue-800 text-white font-semibold py-2 px-6 rounded-lg transition duration-200 shadow-md">
+            Create Class
+        </button>
+    </form>
+</div>
+
+<!-- Existing Classes -->
+<div class="bg-white rounded-lg shadow-md p-4 md:p-6">
+    <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-4 md:mb-6">Your Classes</h2>
+    
+    {% if classes %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class Name</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Subject</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Division</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Time Slot</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for class in classes %}
+                <tr>
+                    <td class="px-3 md:px-6 py-4 text-sm font-medium text-gray-900">{{ class.class_name }}</td>
+                    <td class="px-3 md:px-6 py-4 text-sm text-gray-600 hidden md:table-cell">{{ class.subject }}</td>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ class.year }}</td>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ class.division }}</td>
+                    <td class="px-3 md:px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">{{ class.time_slot }}</td>
+                    <td class="px-3 md:px-6 py-4 text-sm">
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <a href="{{ url_for('professors.mark_attendance', class_id=class._id) }}" 
+                               class="bg-green-600 hover:bg-green-700 text-white px-2 md:px-3 py-1 rounded text-xs md:text-sm transition duration-200 text-center">
+                                Mark Attendance
+                            </a>
+                            <a href="{{ url_for('professors.view_attendance', class_id=class._id) }}" 
+                               class="bg-blue-600 hover:bg-blue-700 text-white px-2 md:px-3 py-1 rounded text-xs md:text-sm transition duration-200 text-center">
+                                View Attendance
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-600">No classes created yet. Create your first class above.</p>
+    {% endif %}
+</div>
+{% endblock %}
+

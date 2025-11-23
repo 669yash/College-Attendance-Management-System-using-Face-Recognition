@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Register - College Attendance System{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-4 md:p-8 mt-4 md:mt-8">
+    <h2 class="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-6 md:mb-8">Registration</h2>
+    
+    <form method="POST" action="{{ url_for('auth.register') }}" enctype="multipart/form-data" class="space-y-6">
+        <!-- Role Selection -->
+        <div>
+            <label for="role" class="block text-sm font-medium text-gray-700 mb-2">I am a:</label>
+            <select id="role" 
+                    name="role" 
+                    required 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onchange="toggleStudentFields()">
+                <option value="">Select Role</option>
+                <option value="student">Student</option>
+                <option value="professor">Professor</option>
+            </select>
+        </div>
+        
+        <!-- Common Fields -->
+        <div>
+            <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+            <input type="text" 
+                   id="name" 
+                   name="name" 
+                   required 
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                   placeholder="Enter your full name">
+        </div>
+        
+        <div>
+            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+            <input type="email" 
+                   id="email" 
+                   name="email" 
+                   required 
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                   placeholder="Enter your email">
+        </div>
+        
+        <div>
+            <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+            <input type="password" 
+                   id="password" 
+                   name="password" 
+                   required 
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                   placeholder="Enter your password">
+        </div>
+        
+        <!-- Student-specific Fields -->
+        <div id="studentFields" style="display: none;">
+            <div>
+                <label for="roll_number" class="block text-sm font-medium text-gray-700 mb-2">Roll Number</label>
+                <input type="text" 
+                       id="roll_number" 
+                       name="roll_number" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="Enter your roll number">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="year" class="block text-sm font-medium text-gray-700 mb-2">Year</label>
+                    <input type="text" 
+                           id="year" 
+                           name="year" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="e.g., FE, SE, TE, BE">
+                </div>
+                
+                <div>
+                    <label for="division" class="block text-sm font-medium text-gray-700 mb-2">Division</label>
+                    <input type="text" 
+                           id="division" 
+                           name="division" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="e.g., A, B, C">
+                </div>
+            </div>
+            
+            <div>
+                <label for="face_images" class="block text-sm font-medium text-gray-700 mb-2">Upload Face Images (4-5 images)</label>
+                <input type="file" 
+                       id="face_images" 
+                       name="face_images" 
+                       multiple 
+                       accept="image/*"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">Please upload 4-5 clear face images for attendance recognition</p>
+            </div>
+        </div>
+        
+        <button type="submit" 
+                class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md">
+            Register
+        </button>
+    </form>
+    
+    <div class="mt-6 text-center">
+        <p class="text-sm text-gray-600">
+            Already have an account? 
+            <a href="{{ url_for('auth.login') }}" class="text-blue-600 hover:text-blue-800 font-semibold">Login here</a>
+        </p>
+    </div>
+</div>
+
+<script>
+function toggleStudentFields() {
+    const role = document.getElementById('role').value;
+    const studentFields = document.getElementById('studentFields');
+    const rollNumber = document.getElementById('roll_number');
+    const year = document.getElementById('year');
+    const division = document.getElementById('division');
+    const faceImages = document.getElementById('face_images');
+    
+    if (role === 'student') {
+        studentFields.style.display = 'block';
+        rollNumber.required = true;
+        year.required = true;
+        division.required = true;
+        faceImages.required = true;
+    } else {
+        studentFields.style.display = 'none';
+        rollNumber.required = false;
+        year.required = false;
+        division.required = false;
+        faceImages.required = false;
+    }
+}
+</script>
+{% endblock %}
+
