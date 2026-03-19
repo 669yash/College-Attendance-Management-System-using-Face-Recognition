@@ -21,6 +21,7 @@
     </div>
     
     <form method="POST" action="{{ url_for('professors.update_attendance', class_id=class_info._id) }}" class="space-y-4">
+        <input type="hidden" name="session_id" value="{{ session_id }}" />
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
@@ -124,18 +125,30 @@
     </form>
 </div>
 
+{% if annotated_images and session_id %}
+<div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-3">Unregistered Faces</h3>
+    <p class="text-sm text-gray-600 mb-4">Red rectangles indicate faces not matched to registered students.</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for f in annotated_images %}
+        <div class="bg-gray-50 p-2 rounded">
+            <img src="{{ url_for('professors.classroom_image', class_id=class_info._id, session_id=session_id, filename=f) }}" class="w-full h-auto rounded" />
+        </div>
+        {% endfor %}
+    </div>
+    {% if annotated_images|length == 0 %}
+    <p class="text-sm text-gray-600">No unregistered faces detected.</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<script type="application/json" id="students-json">{{ all_students_simple|tojson }}</script>
+<script type="application/json" id="enrolled-json">{{ enrolled_roll_numbers_list|tojson }}</script>
 <script>
 let addedStudents = new Set();
-const allStudentsData = {
-    {% for student in all_students %}
-    "{{ student.roll_number }}": "{{ student.name }}",
-    {% endfor %}
-};
-const enrolledRollNumbers = new Set([
-    {% for roll in enrolled_roll_numbers %}
-    "{{ roll }}",
-    {% endfor %}
-]);
+const allStudents = JSON.parse(document.getElementById('students-json').textContent || '[]');
+const allStudentsData = Object.fromEntries(allStudents.map(s => [String(s.roll_number), s.name]));
+const enrolledRollNumbers = new Set(JSON.parse(document.getElementById('enrolled-json').textContent || '[]'));
 
 function addStudentByRollNumber() {
     const rollNumberInput = document.getElementById('roll_number_input');

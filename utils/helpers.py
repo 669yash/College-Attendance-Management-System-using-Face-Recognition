@@ -3,7 +3,8 @@ Helper utility functions
 """
 import os
 from werkzeug.utils import secure_filename
-from config import ALLOWED_EXTENSIONS, UPLOAD_FOLDER
+from config import ALLOWED_EXTENSIONS, UPLOAD_FOLDER, STUDENTS_FOLDER
+from datetime import datetime
 
 
 def allowed_file(filename):
@@ -79,4 +80,41 @@ def save_uploaded_file(file, folder_path, filename=None):
 def ensure_directory(path):
     """Ensure directory exists, create if it doesn't"""
     path.mkdir(parents=True, exist_ok=True)
+
+
+def log_activity(db, actor_id, role, action, details=None, class_id=None, student_roll=None):
+    try:
+        doc = {
+            'actor_id': actor_id,
+            'role': role,
+            'action': action,
+            'timestamp': datetime.utcnow(),
+            'details': details or {},
+        }
+        if class_id is not None:
+            doc['class_id'] = class_id
+        if student_roll is not None:
+            doc['student_roll'] = student_roll
+        db.activity_logs.insert_one(doc)
+    except Exception as e:
+        try:
+            print(f"[WARN] Failed to write activity log: {e}")
+        except Exception:
+            pass
+
+
+def clear_student_images(roll_number: str):
+    try:
+        folder = STUDENTS_FOLDER / roll_number
+        if folder.exists():
+            for ext in ['*.jpg', '*.jpeg', '*.png', '*.gif']:
+                for p in folder.glob(ext):
+                    try:
+                        p.unlink()
+                    except Exception:
+                        pass
+        else:
+            folder.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
 

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Unregistered Detections{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto p-4">
+  <h2 class="text-2xl font-semibold mb-4">Unregistered Detections</h2>
+  <form method="POST" action="{{ url_for('admin.poll_cameras') }}" class="mb-4">
+    <button class="bg-blue-600 text-white px-4 py-2 rounded">Poll Cameras</button>
+  </form>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {% for r in rows %}
+      <div class="border rounded shadow p-2">
+        <div class="text-sm text-gray-600 mb-2">
+          <div>Location: {{ r.location }}</div>
+          <div>Serial: {{ r.camera_serial }}</div>
+          <div>Time: {{ r.timestamp }}</div>
+        </div>
+        <img src="{{ url_for('admin.unregistered_image', path=r.image_path) }}" class="w-full h-auto rounded"/>
+      </div>
+    {% endfor %}
+  </div>
+  <div class="mt-4 flex items-center gap-2">
+    {% if page|int > 1 %}
+      <a class="px-3 py-1 border rounded" href="{{ url_for('admin.unregistered', page=page|int-1, per_page=per_page) }}">Prev</a>
+    {% endif %}
+    <span class="px-3 py-1">Page {{ page }}</span>
+    <a class="px-3 py-1 border rounded" href="{{ url_for('admin.unregistered', page=page|int+1, per_page=per_page) }}">Next</a>
+  </div>
+  <div class="mt-6">
+    <form method="POST" action="{{ url_for('admin.mark_attendance_from_camera') }}" class="grid grid-cols-1 md:grid-cols-3 gap-2">
+      <input type="text" name="class_id" placeholder="Class ID" class="border px-2 py-2 rounded" />
+      <input type="text" name="serial" placeholder="Camera Serial" class="border px-2 py-2 rounded" />
+      <button class="bg-green-600 text-white px-4 py-2 rounded">Mark Attendance From Camera</button>
+    </form>
+  </div>
+{% endblock %}

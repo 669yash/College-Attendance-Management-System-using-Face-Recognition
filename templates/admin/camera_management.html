@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Camera Management{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-4">Camera Management</h1>
+
+    <div class="mb-8 bg-white p-4 rounded-lg shadow">
+        <h2 class="text-xl font-semibold mb-4">Quick Mark Attendance</h2>
+        <form method="POST" action="{{ url_for('admin.mark_attendance_from_camera') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div>
+                <label class="block text-sm font-medium mb-1">Select By</label>
+                <select id="selectBy" class="border rounded w-full p-2">
+                    <option value="serial">Serial</option>
+                    <option value="location">Location</option>
+                </select>
+            </div>
+            <div id="serialPicker">
+                <label class="block text-sm font-medium mb-1">Camera Serial</label>
+                <select name="serial" class="border rounded w-full p-2">
+                    <option value="">Select serial</option>
+                    {% for s in serials %}
+                    <option value="{{ s }}">{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div id="locationPicker" class="hidden">
+                <label class="block text-sm font-medium mb-1">Location</label>
+                <select id="locationSelect" class="border rounded w-full p-2">
+                    <option value="">Select location</option>
+                    {% for loc in locations %}
+                    <option value="{{ loc }}">{{ loc }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Class</label>
+                <select name="class_id" class="border rounded w-full p-2" required>
+                    <option value="">Select class</option>
+                    {% for c in classes %}
+                    <option value="{{ c._id }}">{{ c.class_name }} ({{ c.year }} - {{ c.division }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full">Mark Attendance Now</button>
+            </div>
+        </form>
+        <p class="text-xs text-gray-500 mt-2">When selecting by location, the first camera for that location will be used.</p>
+    </div>
+
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-2">Classroom Cameras</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for camera in classroom_cameras %}
+            <div class="bg-white p-4 rounded-lg shadow">
+                <img src="{{ url_for('admin.camera_snapshot', serial=camera.serial) }}&t={{ loop.index }}" data-serial="{{ camera.serial }}" class="snapshot-img w-full h-40 object-cover rounded mb-2" alt="snapshot">
+                <h3 class="font-bold">{{ camera.name }}</h3>
+                <p>Serial: {{ camera.serial }}</p>
+                <p>Model: {{ camera.model }}</p>
+                <button class="mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                        onclick="openSchedulingModal('{{ camera.serial }}', '{{ camera.name }}')">
+                    Schedule Attendance
+                </button>
+                <form method="POST" action="{{ url_for('admin.mark_attendance_from_camera') }}" class="mt-2">
+                    <input type="hidden" name="serial" value="{{ camera.serial }}">
+                    <select name="class_id" class="border rounded p-2 mr-2" required>
+                        <option value="">Select class</option>
+                        {% for c in classes %}
+                        <option value="{{ c._id }}">{{ c.class_name }} ({{ c.year }} - {{ c.division }})</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Mark Now</button>
+                </form>
+            </div>
+            {% endfor %}
+            {% if not classroom_cameras %}
+            <p>No classroom cameras found.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-2">Outdoor Cameras</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for camera in outdoor_cameras %}
+            <div class="bg-white p-4 rounded-lg shadow">
+                <img src="{{ url_for('admin.camera_snapshot', serial=camera.serial) }}&t={{ loop.index }}" data-serial="{{ camera.serial }}" class="snapshot-img w-full h-40 object-cover rounded mb-2" alt="snapshot">
+                <h3 class="font-bold">{{ camera.name }}</h3>
+                <p>Serial: {{ camera.serial }}</p>
+                <p>Model: {{ camera.model }}</p>
+                <button class="mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                        onclick="openSchedulingModal('{{ camera.serial }}', '{{ camera.name }}')">
+                    Schedule Attendance
+                </button>
+                <form method="POST" action="{{ url_for('admin.mark_attendance_from_camera') }}" class="mt-2">
+                    <input type="hidden" name="serial" value="{{ camera.serial }}">
+                    <select name="class_id" class="border rounded p-2 mr-2" required>
+                        <option value="">Select class</option>
+                        {% for c in classes %}
+                        <option value="{{ c._id }}">{{ c.class_name }} ({{ c.year }} - {{ c.division }})</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Mark Now</button>
+                </form>
+            </div>
+            {% endfor %}
+            {% if not outdoor_cameras %}
+            <p>No outdoor cameras found.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Scheduling Modal -->
+    <div id="schedulingModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-1/3">
+            <h2 class="text-xl font-bold mb-4">Schedule Attendance for <span id="modalCameraName"></span></h2>
+            <form id="scheduleForm" method="POST" action="{{ url_for('admin.schedule_attendance') }}">
+                <input type="hidden" id="modalCameraSerial" name="camera_serial">
+                
+                <div class="mb-4">
+                    <label for="class_id" class="block text-gray-700 text-sm font-bold mb-2">Select Class:</label>
+                    <select name="class_id" id="class_id" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                        <option value="">-- Select a Class --</option>
+                        {% for class in classes %}
+                        <option value="{{ class._id }}">{{ class.class_name }} ({{ class.year }} - {{ class.division }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label for="start_time" class="block text-gray-700 text-sm font-bold mb-2">Start Time:</label>
+                    <input type="datetime-local" id="start_time" name="start_time" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+
+                <div class="mb-4">
+                    <label for="end_time" class="block text-gray-700 text-sm font-bold mb-2">End Time:</label>
+                    <input type="datetime-local" id="end_time" name="end_time" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+
+                <div class="mb-4">
+                    <label for="interval_minutes" class="block text-gray-700 text-sm font-bold mb-2">Interval (minutes):</label>
+                    <input type="number" id="interval_minutes" name="interval_minutes" min="1" value="5" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Schedule</button>
+                    <button type="button" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600" onclick="closeSchedulingModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const selectBy = document.getElementById('selectBy');
+    const serialPicker = document.getElementById('serialPicker');
+    const locationPicker = document.getElementById('locationPicker');
+    const locationSelect = document.getElementById('locationSelect');
+    const serialSelect = serialPicker.querySelector('select[name="serial"]');
+    selectBy.addEventListener('change', () => {
+        if (selectBy.value === 'serial') {
+            serialPicker.classList.remove('hidden');
+            locationPicker.classList.add('hidden');
+            serialSelect.setAttribute('name', 'serial');
+            locationSelect.removeAttribute('name');
+        } else {
+            serialPicker.classList.add('hidden');
+            locationPicker.classList.remove('hidden');
+            locationSelect.setAttribute('name', 'location');
+            serialSelect.removeAttribute('name');
+        }
+    });
+    function openSchedulingModal(serial, name) {
+        document.getElementById('modalCameraSerial').value = serial;
+        document.getElementById('modalCameraName').innerText = name;
+        document.getElementById('schedulingModal').classList.remove('hidden');
+    }
+    const PLACEHOLDER = 'data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"640\" height=\"240\"><rect width=\"100%\" height=\"100%\" fill=\"#eef\"/><text x=\"50%\" y=\"50%\" dominant-baseline=\"middle\" text-anchor=\"middle\" fill=\"#335\" font-size=\"18\">Snapshot unavailable</text></svg>';
+    document.querySelectorAll('.snapshot-img').forEach(img => {
+        img.onerror = () => {
+            img.dataset.disabled = '1';
+            img.src = PLACEHOLDER;
+        };
+    });
+    setInterval(() => {
+        document.querySelectorAll('.snapshot-img').forEach(img => {
+            if (img.dataset.disabled === '1') return;
+            const s = img.getAttribute('data-serial');
+            try {
+                const u = new URL(img.src, window.location.origin);
+                u.searchParams.set('serial', s);
+                u.searchParams.set('t', Date.now().toString());
+                img.src = u.toString();
+            } catch (e) {
+                img.dataset.disabled = '1';
+                img.src = PLACEHOLDER;
+            }
+        });
+    }, 10000);
+
+    function closeSchedulingModal() {
+        document.getElementById('schedulingModal').classList.add('hidden');
+    }
+</script>
+{% endblock %}

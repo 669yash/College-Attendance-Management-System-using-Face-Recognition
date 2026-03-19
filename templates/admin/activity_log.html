@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Activity Log{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto p-4">
+  <h2 class="text-2xl font-semibold mb-4">Activity Log</h2>
+  <table class="w-full border">
+    <thead>
+      <tr class="bg-gray-100">
+        <th class="p-2 border">Time</th>
+        <th class="p-2 border">Role</th>
+        <th class="p-2 border">Action</th>
+        <th class="p-2 border">Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in logs %}
+      <tr>
+        <td class="p-2 border">{{ l.timestamp }}</td>
+        <td class="p-2 border">{{ l.role }}</td>
+        <td class="p-2 border">{{ l.action }}</td>
+        <td class="p-2 border"><pre class="text-xs">{{ l.details }}</pre></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

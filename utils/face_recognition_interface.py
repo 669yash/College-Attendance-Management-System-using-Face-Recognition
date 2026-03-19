@@ -10,6 +10,7 @@ import pickle
 import numpy as np
 from pathlib import Path
 from typing import Dict, List, Tuple
+from datetime import datetime
 
 # Try to import face_recognition, fallback if not available
 try:
@@ -21,7 +22,7 @@ except ImportError:
     print("Install with: pip install face-recognition")
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageDraw
 except ImportError:
     Image = None
 
@@ -30,7 +31,18 @@ try:
 except ImportError:
     cv2 = None
 
-from config import STUDENTS_FOLDER, CLASSROOM_FOLDER, MONGODB_URI, DATABASE_NAME
+from config import (
+    STUDENTS_FOLDER,
+    CLASSROOM_FOLDER,
+    MONGODB_URI,
+    DATABASE_NAME,
+    FACE_MATCH_TOLERANCE,
+    UNKNOWN_FACE_THRESHOLD,
+    MIN_CONFIDENCE_MARGIN,
+    FACE_DETECTION_MODEL,
+    MIN_MATCHES_FOR_PRESENT,
+    FACE_DETECTION_WORKERS,
+)
 from pymongo import MongoClient
 
 # MongoDB connection for storing encodings
@@ -38,8 +50,7 @@ client = MongoClient(MONGODB_URI)
 db = client[DATABASE_NAME]
 
 # Face recognition settings
-FACE_ENCODING_TOLERANCE = 0.6  # Lower = more strict (0.0 to 1.0)
-MIN_FACE_DETECTIONS = 2  # Minimum number of images where face must be detected
+MIN_FACE_DETECTIONS = 2
 
 
 def encode_student_faces(roll_number: str) -> bool:
@@ -142,68 +153,103 @@ def load_all_student_encodings() -> Dict[str, np.ndarray]:
     
     return encodings_dict
 
-
-def detect_faces_in_image(image_path: str) -> List[np.ndarray]:
-    """
-    Detect and encode all faces in a classroom image
-    
-    Args:
-        image_path: Path to classroom image
-    
-    Returns:
-        list: List of face encodings found in the image
-    """
-    if not FACE_RECOGNITION_AVAILABLE:
-        return []
-    
+def load_encodings_for_roll_numbers(roll_numbers: List[str]) -> Dict[str, np.ndarray]:
+    encodings_dict = {}
     try:
-        # Load image
+        records = db.face_encodings.find({'roll_number': {'$in': roll_numbers}})
+        for record in records:
+            encodings_dict[record['roll_number']] = np.array(record['encoding'])
+    except Exception as e:
+        pass
+    return encodings_dict
+
+
+def detect_faces_in_image(image_path: str):
+    if not FACE_RECOGNITION_AVAILABLE:
+        return [], []
+    try:
         image = face_recognition.load_image_file(image_path)
-        
-        # Find face locations (using HOG model for speed, can use 'cnn' for accuracy)
-        face_locations = face_recognition.face_locations(image, model='hog')
-        
+        face_locations = face_recognition.face_locations(image, model=FACE_DETECTION_MODEL)
         if len(face_locations) == 0:
-            return []
-        
-        # Get encodings for all faces
+            return [], []
         face_encodings = face_recognition.face_encodings(image, face_locations)
-        
-        return face_encodings
+        return face_encodings, face_locations
     except Exception as e:
         print(f"Error detecting faces in {image_path}: {e}")
-        return []
+        return [], []
 
 
-def match_faces(classroom_encodings: List[np.ndarray], 
-                student_encodings: Dict[str, np.ndarray]) -> Dict[str, int]:
+def match_faces(classroom_encodings: List[np.ndarray],
+                student_encodings: Dict[str, np.ndarray]) -> Tuple[Dict[str, int], Dict[str, int]]:
     """
-    Match classroom face encodings with student encodings
-    
+    Best-match assignment of classroom faces to registered students with unknown rejection.
+
     Args:
         classroom_encodings: List of face encodings from classroom images
         student_encodings: Dictionary of student roll_number -> encoding
-    
+
     Returns:
-        dict: Dictionary mapping roll_number to number of matches
+        (matches, metrics):
+          - matches: roll_number -> number of accepted matches
+          - metrics: {'unknown_faces': int, 'ambiguous_matches': int, 'weak_matches': int}
     """
-    matches = {}
-    
-    for roll_number, student_encoding in student_encodings.items():
-        match_count = 0
-        
-        for classroom_encoding in classroom_encodings:
-            # Compare faces
-            distance = face_recognition.face_distance([student_encoding], classroom_encoding)[0]
-            
-            # If distance is below tolerance, it's a match
-            if distance <= FACE_ENCODING_TOLERANCE:
-                match_count += 1
-        
-        if match_count > 0:
-            matches[roll_number] = match_count
-    
-    return matches
+    matches: Dict[str, int] = {}
+    metrics = {
+        'unknown_faces': 0,
+        'ambiguous_matches': 0,
+        'weak_matches': 0,
+    }
+
+    if not classroom_encodings or not student_encodings:
+        return matches, metrics
+
+    # Precompute student encodings list for vectorized distance computation
+    rolls = list(student_encodings.keys())
+    student_vecs = np.stack([student_encodings[r] for r in rolls]) if rolls else np.empty((0, 128))
+
+    for classroom_encoding in classroom_encodings:
+        # Compute distances to all students
+        try:
+            distances = face_recognition.face_distance(student_vecs, classroom_encoding)
+        except Exception:
+            # Fallback to per-student if vectorized fails
+            distances = np.array([
+                face_recognition.face_distance([student_encodings[r]], classroom_encoding)[0]
+                for r in rolls
+            ])
+
+        if distances.size == 0:
+            metrics['unknown_faces'] += 1
+            continue
+
+        # Find best and second-best matches
+        order = np.argsort(distances)
+        best_idx = order[0]
+        best_roll = rolls[best_idx]
+        best_dist = distances[best_idx]
+        second_best_dist = distances[order[1]] if distances.size > 1 else None
+
+        # Reject if distance exceeds match tolerance
+        if best_dist > FACE_MATCH_TOLERANCE:
+            metrics['unknown_faces'] += 1
+            continue
+
+        # If second best is too close, mark ambiguous and skip
+        if second_best_dist is not None and (second_best_dist - best_dist) < MIN_CONFIDENCE_MARGIN:
+            metrics['ambiguous_matches'] += 1
+            continue
+
+        # Weak match warning zone (optional): near unknown threshold
+        if best_dist > UNKNOWN_FACE_THRESHOLD:
+            metrics['weak_matches'] += 1
+            # Still reject to avoid false positives
+            metrics['unknown_faces'] += 1
+            continue
+
+        # Accept best match
+        matches[best_roll] = matches.get(best_roll, 0) + 1
+
+    return matches, metrics
 
 
 def mark_attendance_from_classroom_images(class_id, classroom_images_path, timestamp):
@@ -221,11 +267,25 @@ def mark_attendance_from_classroom_images(class_id, classroom_images_path, times
     """
     print(f"\n=== Processing Attendance for Class {class_id} ===")
     
-    # Load all student encodings
-    student_encodings = load_all_student_encodings()
-    
+    from bson import ObjectId
+    if isinstance(class_id, str):
+        try:
+            class_id_obj = ObjectId(class_id)
+        except:
+            return {}
+    else:
+        class_id_obj = class_id
+    class_info = db.classes.find_one({'_id': class_id_obj})
+    if not class_info:
+        return {}
+    students = list(db.users.find({
+        'role': 'student',
+        'year': class_info['year'],
+        'division': class_info['division']
+    }))
+    class_roll_numbers = [s['roll_number'] for s in students]
+    student_encodings = load_encodings_for_roll_numbers(class_roll_numbers)
     if len(student_encodings) == 0:
-        print("No student encodings found in database")
         return {}
     
     # Get all classroom images
@@ -240,57 +300,84 @@ def mark_attendance_from_classroom_images(class_id, classroom_images_path, times
     
     print(f"Processing {len(image_files)} classroom images...")
     
-    # Detect faces in all classroom images
-    all_classroom_encodings = []
+    rolls = list(student_encodings.keys())
+    student_vecs = np.stack([student_encodings[r] for r in rolls]) if rolls else np.empty((0, 128))
+    matches: Dict[str, int] = {}
+    metrics = {
+        'unknown_faces': 0,
+        'ambiguous_matches': 0,
+        'weak_matches': 0,
+    }
     for image_path in image_files:
         print(f"  Processing {image_path.name}...")
-        encodings = detect_faces_in_image(str(image_path))
-        all_classroom_encodings.extend(encodings)
+        encodings, locations = detect_faces_in_image(str(image_path))
         print(f"    Found {len(encodings)} face(s)")
-    
-    print(f"Total faces detected in classroom: {len(all_classroom_encodings)}")
-    
-    if len(all_classroom_encodings) == 0:
-        print("No faces detected in classroom images")
-        return {}
-    
-    # Match faces with students
-    matches = match_faces(all_classroom_encodings, student_encodings)
+        unknown_locations = []
+        for enc, loc in zip(encodings, locations):
+            if student_vecs.size == 0:
+                metrics['unknown_faces'] += 1
+                unknown_locations.append(loc)
+                continue
+            try:
+                distances = face_recognition.face_distance(student_vecs, enc)
+            except Exception:
+                distances = np.array([
+                    face_recognition.face_distance([student_encodings[r]], enc)[0]
+                    for r in rolls
+                ])
+            if distances.size == 0:
+                metrics['unknown_faces'] += 1
+                unknown_locations.append(loc)
+                continue
+            order = np.argsort(distances)
+            best_idx = order[0]
+            best_roll = rolls[best_idx]
+            best_dist = distances[best_idx]
+            second_best_dist = distances[order[1]] if distances.size > 1 else None
+            if best_dist > FACE_MATCH_TOLERANCE:
+                metrics['unknown_faces'] += 1
+                unknown_locations.append(loc)
+                continue
+            if second_best_dist is not None and (second_best_dist - best_dist) < MIN_CONFIDENCE_MARGIN:
+                metrics['ambiguous_matches'] += 1
+                unknown_locations.append(loc)
+                continue
+            if best_dist > UNKNOWN_FACE_THRESHOLD:
+                metrics['weak_matches'] += 1
+                metrics['unknown_faces'] += 1
+                unknown_locations.append(loc)
+                continue
+            matches[best_roll] = matches.get(best_roll, 0) + 1
+        if unknown_locations:
+            annotated_name = f"annotated_{image_path.name}"
+            annotated_path = classroom_folder / annotated_name
+            try:
+                if Image is not None:
+                    im = Image.open(str(image_path))
+                    dr = ImageDraw.Draw(im)
+                    for top, right, bottom, left in unknown_locations:
+                        dr.rectangle([(left, top), (right, bottom)], outline=(255, 0, 0), width=3)
+                    im.save(str(annotated_path))
+                elif cv2 is not None:
+                    im = cv2.imread(str(image_path))
+                    for top, right, bottom, left in unknown_locations:
+                        cv2.rectangle(im, (left, top), (right, bottom), (0, 0, 255), 3)
+                    cv2.imwrite(str(annotated_path), im)
+            except Exception as e:
+                pass
     
     print(f"\nFace Recognition Results:")
     print(f"  Students matched: {len(matches)}")
+    print(f"  Unknown faces rejected: {metrics.get('unknown_faces', 0)}")
+    print(f"  Ambiguous matches skipped: {metrics.get('ambiguous_matches', 0)}")
+    print(f"  Weak matches rejected: {metrics.get('weak_matches', 0)}")
     for roll_num, match_count in matches.items():
         print(f"    - {roll_num}: {match_count} match(es)")
-    
-    # Get all students in the class to determine attendance
-    from bson import ObjectId
-    
-    # Handle class_id - it might be string or ObjectId
-    if isinstance(class_id, str):
-        try:
-            class_id_obj = ObjectId(class_id)
-        except:
-            print(f"[ERROR] Invalid class_id format: {class_id}")
-            return {}
-    else:
-        class_id_obj = class_id
-    
-    class_info = db.classes.find_one({'_id': class_id_obj})
-    if not class_info:
-        print(f"[ERROR] Class not found: {class_id}")
-        return {}
     
     print(f"\nClass Info:")
     print(f"  Class: {class_info.get('class_name')}")
     print(f"  Year: {class_info.get('year')}")
     print(f"  Division: {class_info.get('division')}")
-    
-    # Get all students in this class (based on year and division)
-    students = list(db.users.find({
-        'role': 'student',
-        'year': class_info['year'],
-        'division': class_info['division']
-    }))
     
     print(f"\nStudents in class (year={class_info['year']}, division={class_info['division']}): {len(students)}")
     
@@ -313,7 +400,7 @@ def mark_attendance_from_classroom_images(class_id, classroom_images_path, times
         roll_number = student['roll_number']
         
         # Student is present if their face was matched in at least one image
-        if roll_number in matches:
+        if roll_number in matches and matches[roll_number] >= MIN_MATCHES_FOR_PRESENT:
             attendance_results[roll_number] = 'present'
             print(f"  [OK] {roll_number} ({student['name']}): PRESENT ({matches[roll_number]} match(es))")
         else:
@@ -334,7 +421,10 @@ def mark_attendance_from_classroom_images(class_id, classroom_images_path, times
     print(f"Number of results: {len(attendance_results)}")
     print(f"=== Attendance Processing Complete ===\n")
     
-    return attendance_results
+    return {
+        'attendance': attendance_results,
+        'metrics': metrics,
+    }
 
 
 def get_student_face_embeddings(roll_number):
@@ -407,3 +497,68 @@ def validate_student_images(roll_number):
     
     # Require faces in at least 3 out of 4-5 images
     return faces_detected >= 3
+
+def process_unregistered_from_image(image_path: str, save_folder: Path, location: str, camera_serial: str) -> Dict[str, int]:
+    if not FACE_RECOGNITION_AVAILABLE:
+        return {'unknown_faces': 0}
+    encodings, locations = detect_faces_in_image(str(image_path))
+    students = load_all_student_encodings()
+    rolls = list(students.keys())
+    student_vecs = np.stack([students[r] for r in rolls]) if rolls else np.empty((0, 128))
+    unknown_locations = []
+    for enc, loc in zip(encodings, locations):
+        if student_vecs.size == 0:
+            unknown_locations.append(loc)
+            continue
+        try:
+            distances = face_recognition.face_distance(student_vecs, enc)
+        except Exception:
+            distances = np.array([
+                face_recognition.face_distance([students[r]], enc)[0] for r in rolls
+            ])
+        if distances.size == 0:
+            unknown_locations.append(loc)
+            continue
+        order = np.argsort(distances)
+        best_dist = distances[order[0]]
+        second_best = distances[order[1]] if distances.size > 1 else None
+        if best_dist > FACE_MATCH_TOLERANCE:
+            unknown_locations.append(loc)
+            continue
+        if second_best is not None and (second_best - best_dist) < MIN_CONFIDENCE_MARGIN:
+            unknown_locations.append(loc)
+            continue
+        if best_dist > UNKNOWN_FACE_THRESHOLD:
+            unknown_locations.append(loc)
+            continue
+    annotated_path = None
+    if unknown_locations:
+        try:
+            ip = Path(image_path)
+            save_folder.mkdir(parents=True, exist_ok=True)
+            annotated_path = save_folder / f"annotated_{ip.name}"
+            if Image is not None:
+                im = Image.open(str(ip))
+                dr = ImageDraw.Draw(im)
+                for top, right, bottom, left in unknown_locations:
+                    dr.rectangle([(left, top), (right, bottom)], outline=(255, 0, 0), width=3)
+                im.save(str(annotated_path))
+            elif cv2 is not None:
+                im = cv2.imread(str(ip))
+                for top, right, bottom, left in unknown_locations:
+                    cv2.rectangle(im, (left, top), (right, bottom), (0, 0, 255), 3)
+                cv2.imwrite(str(annotated_path), im)
+        except Exception:
+            annotated_path = None
+    if unknown_locations:
+        try:
+            db.unregistered_detections.insert_one({
+                'image_path': str(annotated_path or image_path),
+                'raw_image_path': str(image_path),
+                'location': location,
+                'camera_serial': camera_serial,
+                'timestamp': datetime.now()
+            })
+        except Exception:
+            pass
+    return {'unknown_faces': len(unknown_locations)}

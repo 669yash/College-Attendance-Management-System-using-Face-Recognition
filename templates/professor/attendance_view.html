@@ -15,6 +15,14 @@
                class="inline-flex items-center bg-blue-900 hover:bg-blue-800 text-white font-semibold py-2 px-4 md:px-6 rounded-lg transition duration-200 shadow-md text-sm md:text-base">
                 Download Report (CSV)
             </a>
+            <a href="{{ url_for('professors.attendance_sessions', class_id=class_info._id) }}" 
+               class="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 md:px-6 rounded-lg transition duration-200 shadow-md text-sm md:text-base ml-2">
+               Attendance History
+            </a>
+            <a href="{{ url_for('professors.edit_attendance', class_id=class_info._id) }}" 
+               class="inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 md:px-6 rounded-lg transition duration-200 shadow-md text-sm md:text-base ml-2">
+               Review & Edit
+            </a>
         </div>
     </div>
 </div>
@@ -61,6 +69,10 @@
         <a href="{{ url_for('professors.dashboard') }}" 
            class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 text-sm md:text-base">
             Back to Dashboard
+        </a>
+        <a href="{{ url_for('professors.students_list') }}" 
+           class="bg-blue-900 hover:bg-blue-800 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 text-sm md:text-base ml-2">
+            View All Students
         </a>
     </div>
 </div>

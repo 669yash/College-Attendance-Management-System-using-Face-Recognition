@@ -20,4 +20,7 @@ class User(UserMixin):
     def is_professor(self):
         """Check if user is a professor"""
         return self.role == 'professor'
+    
+    def is_admin(self):
+        return self.role == 'admin'
 

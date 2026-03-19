@@ -25,13 +25,21 @@
                    required 
                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                    placeholder="Enter your password">
+            <div class="mt-2 text-right">
+                <a href="{{ url_for('auth.forgot_password') }}" class="text-sm text-blue-600 hover:text-blue-800 font-semibold">Forgot Password?</a>
+            </div>
         </div>
         
-        <button type="submit" 
+        <button id="loginBtn" type="submit" 
                 class="w-full bg-blue-900 hover:bg-blue-800 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md">
             Login
         </button>
     </form>
+    {% if cooldown_remaining %}
+    <div class="mt-4 text-center">
+        <p class="text-sm text-red-700">Too many failed attempts. Try again in <span id="cooldownSeconds">{{ cooldown_remaining }}</span>s</p>
+    </div>
+    {% endif %}
     
     <div class="mt-6 text-center">
         <p class="text-sm text-gray-600">
@@ -40,5 +48,28 @@
         </p>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var s = document.getElementById('cooldownSeconds');
+  var btn = document.getElementById('loginBtn');
+  if(!s) return;
+  var remain = parseInt(s.textContent)||0;
+  if(btn) btn.disabled = true;
+  function tick(){
+    remain -= 1;
+    if(remain <= 0){
+      s.textContent = '0';
+      if(btn) btn.disabled = false;
+      return;
+    }
+    s.textContent = String(remain);
+    setTimeout(tick, 1000);
+  }
+  setTimeout(tick, 1000);
+})();
+</script>
 {% endblock %}
 

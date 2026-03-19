@@ -18,6 +18,7 @@
                 <option value="">Select Role</option>
                 <option value="student">Student</option>
                 <option value="professor">Professor</option>
+                <option value="admin">Admin</option>
             </select>
         </div>
         
@@ -50,6 +51,13 @@
                    required 
                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                    placeholder="Enter your password">
+            <ul class="mt-2 space-y-1 text-xs" id="pw_rules">
+                <li id="rule_len" class="flex items-center gap-2"><span class="icon"></span>8+ characters</li>
+                <li id="rule_uc" class="flex items-center gap-2"><span class="icon"></span>Uppercase letter</li>
+                <li id="rule_lc" class="flex items-center gap-2"><span class="icon"></span>Lowercase letter</li>
+                <li id="rule_num" class="flex items-center gap-2"><span class="icon"></span>Number</li>
+                <li id="rule_sp" class="flex items-center gap-2"><span class="icon"></span>Special character</li>
+            </ul>
         </div>
         
         <!-- Student-specific Fields -->
@@ -94,6 +102,27 @@
                 <p class="text-xs text-gray-500 mt-1">Please upload 4-5 clear face images for attendance recognition</p>
             </div>
         </div>
+
+        <!-- Professor/Admin-specific Fields -->
+        <div id="professorFields" style="display: none;">
+            <div>
+                <label for="professor_code" class="block text-sm font-medium text-gray-700 mb-2">Professor Verification Code</label>
+                <input type="text"
+                       id="professor_code"
+                       name="professor_code"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="Enter code provided by administration">
+                <p class="text-xs text-gray-500 mt-1">Use institutional email and code if required.</p>
+            </div>
+            <div id="adminKeyWrapper" style="display: none;">
+                <label for="admin_key" class="block text-sm font-medium text-gray-700 mb-2">Admin Registration Key</label>
+                <input type="password"
+                       id="admin_key"
+                       name="admin_key"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="Enter admin secret key">
+            </div>
+        </div>
         
         <button type="submit" 
                 class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md">
@@ -113,6 +142,8 @@
 function toggleStudentFields() {
     const role = document.getElementById('role').value;
     const studentFields = document.getElementById('studentFields');
+    const professorFields = document.getElementById('professorFields');
+    const adminKeyWrapper = document.getElementById('adminKeyWrapper');
     const rollNumber = document.getElementById('roll_number');
     const year = document.getElementById('year');
     const division = document.getElementById('division');
@@ -120,18 +151,71 @@ function toggleStudentFields() {
     
     if (role === 'student') {
         studentFields.style.display = 'block';
+        professorFields.style.display = 'none';
+        adminKeyWrapper.style.display = 'none';
         rollNumber.required = true;
         year.required = true;
         division.required = true;
         faceImages.required = true;
+    } else if (role === 'professor') {
+        studentFields.style.display = 'none';
+        professorFields.style.display = 'block';
+        adminKeyWrapper.style.display = 'none';
+        rollNumber.required = false;
+        year.required = false;
+        division.required = false;
+        faceImages.required = false;
+    } else if (role === 'admin') {
+        studentFields.style.display = 'none';
+        professorFields.style.display = 'block';
+        adminKeyWrapper.style.display = 'block';
+        rollNumber.required = false;
+        year.required = false;
+        division.required = false;
+        faceImages.required = false;
     } else {
         studentFields.style.display = 'none';
+        professorFields.style.display = 'none';
+        adminKeyWrapper.style.display = 'none';
         rollNumber.required = false;
         year.required = false;
         division.required = false;
         faceImages.required = false;
     }
 }
+
+// Live password rule indicator
+(function(){
+  const input = document.getElementById('password');
+  const rules = {
+    len: document.getElementById('rule_len'),
+    uc: document.getElementById('rule_uc'),
+    lc: document.getElementById('rule_lc'),
+    num: document.getElementById('rule_num'),
+    sp: document.getElementById('rule_sp')
+  };
+  function setRule(el, ok){
+    if(!el) return;
+    const icon = el.querySelector('.icon');
+    if(ok){
+      el.className = 'flex items-center gap-2 text-green-700';
+      icon.innerHTML = '<svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.704 5.293a1 1 0 010 1.414l-7.5 7.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 111.414-1.414l2.793 2.793 6.793-6.793a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
+    }else{
+      el.className = 'flex items-center gap-2 text-red-700';
+      icon.innerHTML = '<svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10A8 8 0 11.001 9.999 8 8 0 0118 10zm-8-5a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1zm0 8a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" clip-rule="evenodd"/></svg>';
+    }
+  }
+  function update(){
+    const v = input.value || '';
+    setRule(rules.len, v.length >= 8);
+    setRule(rules.uc, /[A-Z]/.test(v));
+    setRule(rules.lc, /[a-z]/.test(v));
+    setRule(rules.num, /\d/.test(v));
+    setRule(rules.sp, /[^A-Za-z0-9]/.test(v));
+  }
+  input && input.addEventListener('input', update);
+  update();
+})();
 </script>
 {% endblock %}
 
